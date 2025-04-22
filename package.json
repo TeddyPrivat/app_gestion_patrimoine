@@ -4,13 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "private": true,
   "devDependencies": {
+    "nodemon": "^3.1.9",
     "prisma": "^6.6.0"
   },
   "dependencies": {
-    "@prisma/client": "^6.6.0"
+    "@prisma/client": "^6.6.0",
+    "express": "^5.1.0"
   }
 }
