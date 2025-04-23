@@ -24,7 +24,7 @@ model User {
   password  String
   nom       String
   prenom    String
-  role      String
+  role      String?
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
 }
