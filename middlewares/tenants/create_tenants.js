@@ -1,11 +1,16 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const bcrypt = require('bcryptjs');
 
-function createTenant(nom) {
+async function createTenant(nom, email, password) {
+  const saltRounds = 10;
+  const passwordHash = await bcrypt.hash(password, saltRounds);
 
   return prisma.tenant.create({
     data: {
-      name: nom
+      nom: nom,
+      email: email,
+      password: passwordHash
     }
   });
 }
