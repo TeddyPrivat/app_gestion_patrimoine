@@ -8,6 +8,8 @@ const patrimoineRoutes = require('./routes/patrimoines/patrimoines');
 const { searchUserByName } = require('./middlewares/recherche/recherche');
 const { searchByEmail } = require('./middlewares/recherche/recherche_mail');
 const crypto = require('cryptojs');
+const {updateUser} = require("./middlewares/users/update_users");
+const {deleteUser} = require("./middlewares/users/delete_users");
 
 const app = express();
 const port = 3000;
@@ -117,6 +119,33 @@ app.get("/recherche/user", async (req, res) => {
   }catch(error){
     console.error("Erreur lors de la recherche :", error.message);
     res.status(401).json({ error: error.message });
+  }
+});
+
+app.patch("/update/user", async (req, res) => {
+  const { email, ...updateFields } = req.body;
+
+  try {
+    const updatedUser = await updateUser(email, updateFields);
+    res.status(200).json({
+      message: "Utilisateur mis à jour",
+      user: updatedUser
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Mise à jour échouée : " + error.message });
+  }
+});
+
+app.delete("/delete/user", async (req, res) => {
+  const id = req.query.id;
+  try{
+    const deletedUser = await deleteUser(id);
+    res.status(200).json({
+      message: "L'utilisateur a été supprimé",
+      user: deletedUser
+    })
+  }catch(error){
+    res.status(500).json({ error: "Mise à jour échouée : " + error.message });
   }
 });
 
