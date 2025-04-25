@@ -1,154 +1,153 @@
 const express = require('express');
-const user = require('./middlewares/users/create_users');
-const tenant = require('./middlewares/tenants/create_tenants');
-const { signInUser } = require("./middlewares/connexion/connexion_user");
-const { signInTenant } = require("./middlewares/connexion/connexion_tenant");
+const { createUser } = require('./middlewares/users/create_users');
+const { createTenant } = require('./middlewares/tenants/create_tenants');
+const { signInUser } = require('./middlewares/connexion/connexion_user');
+const { signInTenant } = require('./middlewares/connexion/connexion_tenant');
+const { authenticateToken } = require('./middlewares/auth');
+
 const searchPatrimoines = require('./routes/patrimoines/search');
 const patrimoineRoutes = require('./routes/patrimoines/patrimoines');
+const userRoutes = require('./routes/user');       // → /api/user
+const tenantRoutes = require('./routes/tenant');   // → /api/tenant
+
+// + Recherche, mise à jour, suppression
 const { searchUserByName } = require('./middlewares/recherche/recherche');
 const { searchByEmail } = require('./middlewares/recherche/recherche_mail');
+const { updateUser } = require('./middlewares/users/update_users');
+const { deleteUser } = require('./middlewares/users/delete_users');
 const crypto = require('cryptojs');
-const {updateUser} = require("./middlewares/users/update_users");
-const {deleteUser} = require("./middlewares/users/delete_users");
 
 const app = express();
 const port = 3000;
 
 app.use(express.json());
-app.use('/api/patrimoines', searchPatrimoines);
-app.use('/api/patrimoines', patrimoineRoutes);
 
+// === Accueil ===
 app.get('/', (req, res) => {
   res.send('Hello depuis Express 👋');
 });
 
+// === Création d'un utilisateur ===
 app.post('/create-user', async (req, res) => {
   const { email, password, nom, prenom, tenantId, role } = req.body;
   try {
-    const newUser = await user.createUser(email, password, nom, prenom, tenantId, role);
-    console.log("User créé :", newUser);
+    const newUser = await createUser(email, password, nom, prenom, tenantId, role);
     res.status(201).json({ message: "User créé avec succès", user: newUser });
   } catch (error) {
-    console.error("Erreur lors de la création de l'user :", error);
-    res.status(500).json({ error: "Erreur lors de la création de l'user" });
+    console.error("Erreur création user:", error);
+    res.status(500).json({ error: "Erreur lors de la création de l'utilisateur" });
   }
 });
 
+// === Création d'un tenant ===
 app.post('/create-tenant', async (req, res) => {
+  console.log("🧾 Données reçues pour le tenant :", req.body);
   const { nom, email, password } = req.body;
   try {
-    const newTenant = await tenant.createTenant(nom, email, password);
-    console.log("Tenant créé :", newTenant);
+    const newTenant = await createTenant(nom, email, password);
     res.status(201).json({ message: "Tenant créé avec succès", tenant: newTenant });
   } catch (error) {
-    console.error("Erreur lors de la création du tenant :", error);
+    console.error("Erreur création tenant:", error);
     res.status(500).json({ error: "Erreur lors de la création du tenant" });
   }
 });
 
+// === Connexion utilisateur ===
 app.post('/signin/user', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const userOK = await signInUser(email, password);
-    if (!userOK) {
-      console.error('Email incorrect ou utilisateur non trouvé');
-    }
-    return res.status(200).json({ message: "Connexion réussie !", userOK });
+    const { user, token } = await signInUser(email, password);
+    res.status(200).json({ message: "Connexion réussie (user)", token, user });
   } catch (error) {
-    console.error("Erreur lors de la connexion :", error.message);
+    console.error("Erreur connexion user:", error.message);
     res.status(401).json({ error: error.message });
   }
 });
 
+// === Connexion tenant ===
 app.post('/signin/tenant', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const tenantOK = await signInTenant(email, password);
-    if (!tenantOK) {
-      console.error('Email incorrect ou tenant non trouvé');
-    }
-    return res.status(200).json({
-      message: "Connexion réussie",
+    const { tenant, token } = await signInTenant(email, password);
+    res.status(200).json({
+      message: "Connexion réussie (tenant)",
+      token,
       tenant: {
-        id: tenantOK.id,
-        name: tenantOK.name,
-        users: tenantOK.users
+        id: tenant.id,
+        name: tenant.name,
+        users: tenant.users
       }
     });
   } catch (error) {
-    console.error("Erreur lors de la connexion :", error.message);
+    console.error("Erreur connexion tenant:", error.message);
     res.status(401).json({ error: error.message });
   }
 });
 
+// === Routes protégées nécessitant un token ===
+app.use('/api/patrimoines', authenticateToken, searchPatrimoines);
+app.use('/api/patrimoines', authenticateToken, patrimoineRoutes);
+
+// === Nouvelles routes protégées /me
+app.use('/api/user', authenticateToken, userRoutes);
+app.use('/api/tenant', authenticateToken, tenantRoutes);
+
+// === Recherche utilisateurs ===
 app.get('/recherche', async (req, res) => {
   const { nomUser, tenantId } = req.query;
-  try{
+  try {
     const user = await searchUserByName(nomUser, tenantId);
-
-    if(!user){
+    if (!user) {
       console.error("Aucun user trouvé !");
-    }else{
+    } else {
       user.email = crypto.Crypto.AES.decrypt(user.email, process.env.SECRET_KEY);
-      return res.status(200).json({
-        message: "Recherche réussie",
-        user: user
-      });
+      return res.status(200).json({ message: "Recherche réussie", user: user });
     }
-  }catch (error){
+  } catch (error) {
     console.error("Erreur lors de la recherche :", error.message);
     res.status(401).json({ error: error.message });
   }
 });
 
-app.get("/recherche/user", async (req, res) => {
+app.get('/recherche/user', async (req, res) => {
   const email = req.query.email;
-  try{
-    console.log(email);
+  try {
     const user = await searchByEmail(email);
-
-    if(!user){
-      console.error("Aucun user trouvé !", user);
-    }else{
+    if (!user) {
+      console.error("Aucun user trouvé !");
+    } else {
       user.email = crypto.Crypto.AES.decrypt(user.email, process.env.SECRET_KEY);
-      return res.status(200).json({
-        message: "Recherche réussie",
-        user: user
-      });
+      return res.status(200).json({ message: "Recherche réussie", user: user });
     }
-  }catch(error){
+  } catch (error) {
     console.error("Erreur lors de la recherche :", error.message);
     res.status(401).json({ error: error.message });
   }
 });
 
-app.patch("/update/user", async (req, res) => {
+// === Mise à jour utilisateurs ===
+app.patch('/update/user', async (req, res) => {
   const { email, ...updateFields } = req.body;
-
   try {
     const updatedUser = await updateUser(email, updateFields);
-    res.status(200).json({
-      message: "Utilisateur mis à jour",
-      user: updatedUser
-    });
+    res.status(200).json({ message: "Utilisateur mis à jour", user: updatedUser });
   } catch (error) {
     res.status(500).json({ error: "Mise à jour échouée : " + error.message });
   }
 });
 
-app.delete("/delete/user", async (req, res) => {
+// === Suppression utilisateurs ===
+app.delete('/delete/user', async (req, res) => {
   const id = req.query.id;
-  try{
+  try {
     const deletedUser = await deleteUser(id);
-    res.status(200).json({
-      message: "L'utilisateur a été supprimé",
-      user: deletedUser
-    })
-  }catch(error){
-    res.status(500).json({ error: "Mise à jour échouée : " + error.message });
+    res.status(200).json({ message: "L'utilisateur a été supprimé", user: deletedUser });
+  } catch (error) {
+    res.status(500).json({ error: "Suppression échouée : " + error.message });
   }
 });
 
+// === Lancement du serveur ===
 app.listen(port, () => {
   console.log(`🚀 Serveur Express démarré sur http://localhost:${port}`);
 });

@@ -1,26 +1,37 @@
 const bcrypt = require('bcryptjs');
-const CryptoJS = require('cryptojs');
 const { PrismaClient } = require('@prisma/client');
+const { generateToken } = require('../auth');
+
 const prisma = new PrismaClient();
 
 async function signInUser(email, password) {
-  const hashedEmail = CryptoJS.Crypto.SHA256(email.toLowerCase()).toString();
   const user = await prisma.user.findUnique({
-    where:{ emailHash: hashedEmail },
+    where: { email: email.toLowerCase() },
   });
-  console.log(user);
+
   if (!user) {
     throw new Error('Email incorrect ou utilisateur non trouvé');
-  }else{
-    let hashedPassword = CryptoJS.Crypto.SHA256(password).toString();
-    console.log(hashedPassword);
-    if(hashedPassword !== user.hashedPassword){
-      throw new Error('Mot de passe incorrect');
-    }
   }
-  return user;
+
+  const isValid = await bcrypt.compare(password, user.password);
+  if (!isValid) {
+    throw new Error('Mot de passe incorrect');
+  }
+
+  // Création du token JWT
+  const token = generateToken({
+    id: user.id,
+    email: user.email,
+    tenantId: user.tenantId,
+    role: user.role
+  });
+
+  return {
+    user,
+    token
+  };
 }
 
 module.exports = {
   signInUser,
-}
+};

@@ -8,7 +8,7 @@ async function createTenant(nom, email, password) {
   email = cryptojs.Crypto.AES.encrypt(email, process.env.SECRET_KEY);
   return prisma.tenant.create({
     data: {
-      nom: nom,
+      nom: nom, // ✅ bien "nom", PAS "name"
       email: email,
       emailHash: emailHashed,
       password: passwordHashed
