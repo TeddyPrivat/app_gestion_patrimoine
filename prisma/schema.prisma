@@ -23,6 +23,7 @@ model Tenant {
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
+  emailHash String   @unique
   password  String
   nom       String
   prenom    String

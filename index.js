@@ -5,6 +5,9 @@ const { signInUser } = require("./middlewares/connexion/connexion_user");
 const { signInTenant } = require("./middlewares/connexion/connexion_tenant");
 const searchPatrimoines = require('./routes/patrimoines/search');
 const patrimoineRoutes = require('./routes/patrimoines/patrimoines');
+const { searchUserByName } = require('./middlewares/recherche/recherche');
+const { searchByEmail } = require('./middlewares/recherche/recherche_mail');
+const crypto = require('cryptojs');
 
 const app = express();
 const port = 3000;
@@ -72,6 +75,47 @@ app.post('/signin/tenant', async (req, res) => {
     });
   } catch (error) {
     console.error("Erreur lors de la connexion :", error.message);
+    res.status(401).json({ error: error.message });
+  }
+});
+
+app.get('/recherche', async (req, res) => {
+  const { nomUser, tenantId } = req.query;
+  try{
+    const user = await searchUserByName(nomUser, tenantId);
+
+    if(!user){
+      console.error("Aucun user trouvé !");
+    }else{
+      user.email = crypto.Crypto.AES.decrypt(user.email, process.env.SECRET_KEY);
+      return res.status(200).json({
+        message: "Recherche réussie",
+        user: user
+      });
+    }
+  }catch (error){
+    console.error("Erreur lors de la recherche :", error.message);
+    res.status(401).json({ error: error.message });
+  }
+});
+
+app.get("/recherche/user", async (req, res) => {
+  const email = req.query.email;
+  try{
+    console.log(email);
+    const user = await searchByEmail(email);
+
+    if(!user){
+      console.error("Aucun user trouvé !", user);
+    }else{
+      user.email = crypto.Crypto.AES.decrypt(user.email, process.env.SECRET_KEY);
+      return res.status(200).json({
+        message: "Recherche réussie",
+        user: user
+      });
+    }
+  }catch(error){
+    console.error("Erreur lors de la recherche :", error.message);
     res.status(401).json({ error: error.message });
   }
 });
