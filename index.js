@@ -3,12 +3,7 @@ const { createUser } = require('./middlewares/users/create_users');
 const { createTenant } = require('./middlewares/tenants/create_tenants');
 const { signInUser } = require('./middlewares/connexion/connexion_user');
 const { signInTenant } = require('./middlewares/connexion/connexion_tenant');
-const { authenticateToken } = require('./middlewares/auth');
 
-const searchPatrimoines = require('./routes/patrimoines/search');
-const patrimoineRoutes = require('./routes/patrimoines/patrimoines');
-const userRoutes = require('./routes/user');       // → /api/user
-const tenantRoutes = require('./routes/tenant');   // → /api/tenant
 
 // + Recherche, mise à jour, suppression
 const { searchUserByName } = require('./middlewares/recherche/recherche');
@@ -56,8 +51,8 @@ app.post('/create-tenant', async (req, res) => {
 app.post('/signin/user', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const { user, token } = await signInUser(email, password);
-    res.status(200).json({ message: "Connexion réussie (user)", token, user });
+    const user  = await signInUser(email, password);
+    res.status(200).json({ message: "Connexion réussie", user: user });
   } catch (error) {
     console.error("Erreur connexion user:", error.message);
     res.status(401).json({ error: error.message });
@@ -68,29 +63,14 @@ app.post('/signin/user', async (req, res) => {
 app.post('/signin/tenant', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const { tenant, token } = await signInTenant(email, password);
-    res.status(200).json({
-      message: "Connexion réussie (tenant)",
-      token,
-      tenant: {
-        id: tenant.id,
-        name: tenant.name,
-        users: tenant.users
-      }
-    });
+    const tenant = await signInTenant(email, password);
+    console.log(tenant);
+    res.status(200).json({message: "Connexion réussie", tenant: tenant });
   } catch (error) {
     console.error("Erreur connexion tenant:", error.message);
     res.status(401).json({ error: error.message });
   }
 });
-
-// === Routes protégées nécessitant un token ===
-app.use('/api/patrimoines', authenticateToken, searchPatrimoines);
-app.use('/api/patrimoines', authenticateToken, patrimoineRoutes);
-
-// === Nouvelles routes protégées /me
-app.use('/api/user', authenticateToken, userRoutes);
-app.use('/api/tenant', authenticateToken, tenantRoutes);
 
 // === Recherche utilisateurs ===
 app.get('/recherche', async (req, res) => {
